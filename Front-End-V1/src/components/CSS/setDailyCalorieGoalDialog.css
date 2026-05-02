@@ -1,0 +1,155 @@
+.goal-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.goal-dialog {
+  width: min(100%, 425px);
+  border-radius: 1rem;
+  background: #ffffff;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+  padding: 1.5rem;
+}
+
+.goal-dialog__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.goal-dialog__title {
+  margin: 0 0 0.35rem;
+  font-size: 1.125rem;
+  color: #111827;
+}
+
+.goal-dialog__description {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.goal-dialog__close-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+}
+
+.goal-dialog__close-button:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.goal-dialog__close-button:focus-visible,
+.goal-dialog__button:focus-visible,
+.goal-dialog__field input:focus-visible {
+  outline: 2px solid #059669;
+  outline-offset: 2px;
+}
+
+.goal-dialog__form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-top: 1rem;
+}
+
+.goal-dialog__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.goal-dialog__field span {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #111827;
+}
+
+.goal-dialog__field input {
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  color: #111827;
+  font: inherit;
+}
+
+.goal-dialog__error {
+  margin: 0;
+  color: #ef4444;
+  font-size: 0.875rem;
+}
+
+.goal-dialog__info {
+  border-radius: 0.75rem;
+  background: #eff6ff;
+  padding: 0.75rem;
+}
+
+.goal-dialog__info-title {
+  margin: 0 0 0.5rem;
+  color: #1e3a8a;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.goal-dialog__info ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: #1d4ed8;
+  font-size: 0.75rem;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.goal-dialog__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.goal-dialog__button {
+  flex: 1;
+  min-height: 2.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid transparent;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.goal-dialog__button--outline {
+  border-color: #d1d5db;
+  background: transparent;
+  color: #374151;
+}
+
+.goal-dialog__button--outline:hover {
+  background: #f3f4f6;
+}
+
+.goal-dialog__button--primary {
+  background: #059669;
+  color: #ffffff;
+}
+
+.goal-dialog__button--primary:hover {
+  background: #047857;
+}
