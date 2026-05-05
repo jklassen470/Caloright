@@ -1,0 +1,12 @@
+# Composer dependencies — run "composer install" to restore these locally.
+vendor/
+
+# Local CSV data files written by the PHP backend at runtime.
+# The data/ folder itself is tracked via .gitkeep so the directory exists on clone.
+data/*.csv
+
+# Scratch test file — not part of the app.
+calorighttest.php
+
+# Local database config — copy db.example.php to db.php and fill in your own credentials.
+db.php

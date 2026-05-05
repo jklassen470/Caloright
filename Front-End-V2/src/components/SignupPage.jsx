@@ -13,7 +13,7 @@ function SignupPage() {
   })
   const [error, setError] = useState('')
 
-  // Update one signup field.
+  // Updating one field in the signup form state without overwriting the others.
   const updateFormData = (field, value) => {
     setFormData((current) => ({
       ...current,
@@ -21,7 +21,7 @@ function SignupPage() {
     }))
   }
 
-  // Validate the form, then move to 2FA.
+  // Validating the form and calling the registration endpoint, then navigating to the 2FA step with the QR code.
   const handleSignup = async (event) => {
     event.preventDefault()
 
@@ -40,9 +40,13 @@ function SignupPage() {
       return
     }
 
-    await signupUser(formData)
-    setError('')
-    navigate('/2fa')
+    try {
+      const result = await signupUser(formData)
+      setError('')
+      navigate('/2fa', { state: { mode: 'signup', qrCode: result.qrCode, secret: result.secret } })
+    } catch (error) {
+      setError(error.message)
+    }
   }
 
   return (

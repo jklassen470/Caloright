@@ -9,7 +9,7 @@ function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
 
-  // Validate the form, then move to 2FA.
+  // Validating the form and calling the login endpoint, then navigating to the 2FA step if successful.
   const handleLogin = async (event) => {
     event.preventDefault()
 
@@ -18,9 +18,13 @@ function LoginPage() {
       return
     }
 
-    await loginUser({ email, password })
-    setError('')
-    navigate('/2fa')
+    try {
+      await loginUser({ email, password })
+      setError('')
+      navigate('/2fa', { state: { mode: 'login' } })
+    } catch (error) {
+      setError(error.message)
+    }
   }
 
   return (

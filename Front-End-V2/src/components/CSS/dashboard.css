@@ -402,6 +402,9 @@
   color: #6b7280;
 }
 
+/* Resetting font on every interactive element so they all inherit the page font.
+   Browsers apply their own default font to button and input elements, so this
+   reset is required to keep the form visually consistent. */
 .food-log__add-button,
 .food-log__empty-button,
 .food-form__primary-button,
@@ -409,6 +412,8 @@
 .food-form__tab,
 .food-form__quick-item,
 .food-form__icon-button,
+.food-form__result-card,
+.food-form__badge,
 .food-log__delete-button {
   font: inherit;
 }
@@ -908,6 +913,16 @@
 .food-form__field--full,
 .food-form__actions {
   grid-column: 1 / -1;
+}
+
+.food-form__checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #111827;
+  cursor: pointer;
+  user-select: none;
 }
 
 .food-form__field span {

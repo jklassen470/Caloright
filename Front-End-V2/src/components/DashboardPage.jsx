@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { logoutUser } from '../services/authService'
 
 // Import UI components
 import DashboardFooter from './DashboardFooter'
@@ -26,12 +28,15 @@ import './CSS/dashboard.css'
 
 
 // Main dashboard component
-function DashboardPage({ userName = 'John Doe' }) {
+function DashboardPage({ userName = 'John Doe', onLogout }) {
   const [goalDialogOpen, setGoalDialogOpen] = useState(false)
   const {
     foods,
     dailyCalorieGoal,
     weeklyHistory,
+    currentStreak,
+    totalFoodsLogged,
+    goalAchievement,
     isLoading,
     errorMessage,
     addFood,
@@ -39,18 +44,27 @@ function DashboardPage({ userName = 'John Doe' }) {
     updateDailyCalorieGoal,
   } = useDashboardData()
 
+  const navigate = useNavigate()
+
+  // Calling the logout endpoint to destroy the session, clearing the app state, then redirecting to the login page.
+  const handleLogout = async () => {
+    await logoutUser()
+    if (onLogout) onLogout()
+    navigate('/login')
+  }
+
   
   const totalCalories = calculateTotalCalories(foods)
   const totalProtein = calculateMacroTotal(foods, 'protein')
   const totalCarbs = calculateMacroTotal(foods, 'carbs')
   const totalFat = calculateMacroTotal(foods, 'fat')
   const weeklyProgressData = buildWeeklyProgressData(weeklyHistory, dailyCalorieGoal, totalCalories)
-  const quickStats = buildQuickStats(foods, weeklyHistory, dailyCalorieGoal)
+  const quickStats = buildQuickStats(foods, weeklyHistory, dailyCalorieGoal, currentStreak, totalFoodsLogged, goalAchievement)
 
   if (isLoading) {
     return (
       <div className="dashboard-page">
-        <Navbar userName={userName} />
+        <Navbar userName={userName} onLogoutClick={handleLogout} />
         <main className="dashboard-main">
           <div className="dashboard-main__inner">
             <div className="dashboard-main__column">
@@ -70,7 +84,7 @@ function DashboardPage({ userName = 'John Doe' }) {
     <div className="dashboard-page">
 
       {/* Navbar rendered component rendered top */}
-      <Navbar userName={userName} />
+      <Navbar userName={userName} onLogoutClick={handleLogout} />
 
       <main className="dashboard-main">
         <div className="dashboard-main__inner">

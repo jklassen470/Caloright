@@ -27,23 +27,15 @@ export function buildWeeklyProgressData(weeklyHistory, dailyCalorieGoal, todayCa
 }
 
 // Build the values for the quick stats card.
-export function buildQuickStats(foods, weeklyHistory, dailyCalorieGoal) {
+export function buildQuickStats(foods, weeklyHistory, dailyCalorieGoal, currentStreak, totalFoodsLogged, goalAchievement) {
   const todayCalories = calculateTotalCalories(foods)
   const totalWeeklyCalories = weeklyHistory.reduce((sum, day) => sum + day.calories, todayCalories)
   const averageDailyCalories = Math.round(totalWeeklyCalories / (weeklyHistory.length + 1))
-  const totalFoodsLogged = 140 + foods.length
-
-  const daysWithinGoal = [...weeklyHistory, { calories: todayCalories }].filter(
-    (day) => Math.abs(day.calories - dailyCalorieGoal) <= 100,
-  ).length
 
   return [
     { label: 'Average Daily Calories', value: `${averageDailyCalories.toLocaleString()} kcal` },
-    { label: 'Streak', value: '7 days 🔥', highlight: true },
+    { label: 'Streak', value: `${currentStreak} days 🔥`, highlight: true },
     { label: 'Foods Logged', value: `${totalFoodsLogged} total` },
-    {
-      label: 'Goal Achievement',
-      value: `${Math.round((daysWithinGoal / (weeklyHistory.length + 1)) * 100)}%`,
-    },
+    { label: 'Goal Achievement', value: `${goalAchievement}%` },
   ]
 }

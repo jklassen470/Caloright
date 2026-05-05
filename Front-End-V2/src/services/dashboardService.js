@@ -1,6 +1,6 @@
-// This file is the dashboard API layer.
-// React components call these functions instead of talking directly to PHP.
-// That keeps fetch URLs, JSON parsing, and data cleanup in one easy-to-find place.
+// Dashboard API layer for the React frontend.
+// Each function calls a PHP endpoint instead of using mock data.
+// Keeping all fetch URLs, JSON parsing, and data cleanup in one place.
 const API_BASE_URL = 'http://localhost/CaloServer'
 
 const DASHBOARD_DATA_URL = `${API_BASE_URL}/getDashboardData.php`
@@ -65,20 +65,21 @@ async function parseJsonResponse(response, fallbackMessage) {
   return data
 }
 
-// Load all dashboard data from PHP/CSV instead of React mock data.
-// Called when the dashboard first opens.
+// Calling PHP to load all dashboard data when the dashboard first opens.
 export async function getDashboardData() {
-  const response = await fetch(DASHBOARD_DATA_URL)
+  const response = await fetch(DASHBOARD_DATA_URL, {
+    credentials: 'include',
+  })
   const data = await parseJsonResponse(response, 'Unable to load dashboard data.')
 
   return normalizeDashboardData(data ?? {})
 }
 
-// Save the daily calorie goal to the backend CSV file.
-// PHP writes the latest goal into goals.csv.
+// Calling PHP to save the user's daily calorie goal.
 export async function saveDailyCalorieGoal(goal) {
   const response = await fetch(SAVE_DAILY_GOAL_URL, {
     method: 'POST',
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
     },
@@ -89,11 +90,11 @@ export async function saveDailyCalorieGoal(goal) {
   return Number(data.dailyCalorieGoal) || goal
 }
 
-// Add a new food item to the backend CSV file.
-// This supports normal searched foods, barcode foods, and manual recipe foods.
+// Calling PHP to save a new food entry and returning the normalized saved record.
 export async function createFoodEntry(food) {
   const response = await fetch(SAVE_FOOD_ENTRY_URL, {
     method: 'POST',
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
     },
@@ -104,11 +105,11 @@ export async function createFoodEntry(food) {
   return normalizeFoodEntry(savedFood)
 }
 
-// Delete a food item from the backend CSV file.
-// The backend removes the matching row from food_log.csv.
+// Calling PHP to delete a food entry by ID and returning the deleted ID.
 export async function removeFoodEntry(foodId) {
   const response = await fetch(DELETE_FOOD_ENTRY_URL, {
     method: 'POST',
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
     },

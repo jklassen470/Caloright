@@ -34,15 +34,20 @@ function normalizeFoodResult(item, index) {
     foodId: String(item.food_id ?? item.id ?? `${fallbackName}-${index}`),
     name: fallbackName,
     portion: item.portion ?? item.serving_size ?? item.serving ?? parsedNutrition.portion,
+    // Passing serving size through so the amount picker can show the correct default and tab labels.
+    servingAmount: item.servingAmount ?? null,
+    servingUnit: item.servingUnit ?? 'g',
     calories: Number(item.calories ?? item.kcal) || parsedNutrition.calories,
     protein: Number(item.protein) || parsedNutrition.protein,
     carbs: Number(item.carbs ?? item.carbohydrates) || parsedNutrition.carbs,
     fat: Number(item.fat) || parsedNutrition.fat,
+    estimated: item.estimated ?? false,
   }
 }
 
 // Search the PHP endpoint and shape the response so the React form can use it.
-export async function searchFoods(query) {
+// Passing includeBranded as true adds branded USDA foods to the results, which have serving size data.
+export async function searchFoods(query, includeBranded = false) {
   // Empty searches should not call the backend.
   const trimmedQuery = query.trim()
 
@@ -50,8 +55,8 @@ export async function searchFoods(query) {
     return []
   }
 
-  // encodeURIComponent makes spaces and special characters safe inside a URL.
-  const requestUrl = `${SEARCH_FOOD_URL}?query=${encodeURIComponent(trimmedQuery)}`
+  // Appending includeBranded=1 when the user wants branded results with serving size info.
+  const requestUrl = `${SEARCH_FOOD_URL}?query=${encodeURIComponent(trimmedQuery)}${includeBranded ? '&includeBranded=1' : ''}`
   console.log('[foodSearchService] searching foods:', requestUrl)
 
   const response = await fetch(requestUrl)

@@ -40,17 +40,16 @@ function normalize_barcode($barcode)
     return str_pad($digitsOnly, 13, '0', STR_PAD_LEFT);
 }
 
-// Open Food Facts can return nutrition per serving or per 100g.
-// We prefer serving values when available because they match what users expect
-// after scanning a package. If serving values are missing, we fall back to 100g.
-function nutriment_value($nutriments, $servingKey, $hundredGramKey)
+// Using per-100g values consistently so barcode results match the USDA search format.
+// Falling back to per-serving values only when 100g data is missing.
+function nutriment_value($nutriments, $hundredGramKey, $servingKey)
 {
-    if (isset($nutriments[$servingKey]) && $nutriments[$servingKey] !== '') {
-        return (float) $nutriments[$servingKey];
-    }
-
     if (isset($nutriments[$hundredGramKey]) && $nutriments[$hundredGramKey] !== '') {
         return (float) $nutriments[$hundredGramKey];
+    }
+
+    if (isset($nutriments[$servingKey]) && $nutriments[$servingKey] !== '') {
+        return (float) $nutriments[$servingKey];
     }
 
     return 0;
@@ -147,27 +146,96 @@ if (($lookupData['status'] ?? 0) !== 1 || !isset($lookupData['product'])) {
 $product = $lookupData['product'];
 $nutriments = $product['nutriments'] ?? [];
 
-// serving_size is usually best for the UI, but quantity is a useful fallback
-// when Open Food Facts does not know the serving.
-$portion = $product['serving_size'] ?? $product['quantity'] ?? '100g';
 $name = trim($product['product_name'] ?? '');
 
 if ($name === '') {
     $name = "Unknown Food";
 }
 
-// Return the same kind of food object that AddFoodForm expects from searches.
+// Pulling the per-100g values from the API — used when the user switches to grams or mL mode.
+$calories100g = nutriment_value($nutriments, "energy-kcal_100g", "energy-kcal_serving");
+$protein100g  = nutriment_value($nutriments, "proteins_100g", "proteins_serving");
+$carbs100g    = nutriment_value($nutriments, "carbohydrates_100g", "carbohydrates_serving");
+$fat100g      = nutriment_value($nutriments, "fat_100g", "fat_serving");
+
+// Detecting the serving unit and numeric amount from the serving_size string.
+// Using a negative lookahead on the gram pattern to avoid matching "mg".
+$servingSizeRaw = trim($product['serving_size'] ?? '');
+$servingUnit    = null;
+$servingAmount  = null;
+
+if ($servingSizeRaw !== '') {
+    if (preg_match('/(\d+\.?\d*)\s*ml/i', $servingSizeRaw, $matches)) {
+        $servingUnit   = 'mL';
+        $servingAmount = (float) $matches[1];
+    } elseif (preg_match('/(\d+\.?\d*)\s*g(?![a-z])/i', $servingSizeRaw, $matches)) {
+        $servingUnit   = 'g';
+        $servingAmount = (float) $matches[1];
+    }
+}
+
+// Using serving_quantity from nutriments as a reliable gram value when available.
+$servingQuantityGrams = isset($nutriments['serving_quantity']) && (float) $nutriments['serving_quantity'] > 0
+    ? (float) $nutriments['serving_quantity']
+    : null;
+
+// Calculating per-serving nutrition using the best available data.
+// Trying _serving nutriment values first, then scaling from _100g using the serving weight in grams,
+// then parsing the gram value from the serving_size string, and falling back to _100g if nothing else works.
+if (isset($nutriments['energy-kcal_serving']) && $nutriments['energy-kcal_serving'] !== '') {
+    // Using pre-calculated per-serving values from the API directly.
+    $caloriesServing = (float) $nutriments['energy-kcal_serving'];
+    $proteinServing  = (float) ($nutriments['proteins_serving'] ?? 0);
+    $carbsServing    = (float) ($nutriments['carbohydrates_serving'] ?? 0);
+    $fatServing      = (float) ($nutriments['fat_serving'] ?? 0);
+    $portionLabel    = $servingAmount !== null ? "{$servingAmount} {$servingUnit}" : '1 serving';
+} elseif ($servingQuantityGrams !== null) {
+    // Scaling per-100g values by the serving weight in grams.
+    $scale           = $servingQuantityGrams / 100;
+    $caloriesServing = round($calories100g * $scale, 2);
+    $proteinServing  = round($protein100g  * $scale, 2);
+    $carbsServing    = round($carbs100g    * $scale, 2);
+    $fatServing      = round($fat100g      * $scale, 2);
+    $portionLabel    = "{$servingQuantityGrams}g";
+    if ($servingUnit === null) {
+        $servingUnit   = 'g';
+        $servingAmount = $servingQuantityGrams;
+    }
+} elseif ($servingAmount !== null && $servingUnit === 'g') {
+    // Scaling from the gram value parsed out of the serving_size string.
+    $scale           = $servingAmount / 100;
+    $caloriesServing = round($calories100g * $scale, 2);
+    $proteinServing  = round($protein100g  * $scale, 2);
+    $carbsServing    = round($carbs100g    * $scale, 2);
+    $fatServing      = round($fat100g      * $scale, 2);
+    $portionLabel    = "{$servingAmount}g";
+} else {
+    // Falling back to per-100g values when no serving size data is available.
+    $caloriesServing = $calories100g;
+    $proteinServing  = $protein100g;
+    $carbsServing    = $carbs100g;
+    $fatServing      = $fat100g;
+    $portionLabel    = '100g';
+    $servingUnit     = 'g';
+    $servingAmount   = 100;
+}
+
+// Sending per-serving values as the default and per-100g values for weight mode in the frontend.
 send_json([
-    // The frontend saves foodId for the future database. For barcode products,
-    // the barcode is the stable external identifier from Open Food Facts.
-    "foodId" => (string) ($product['code'] ?? $barcode),
-    "barcode" => $barcode,
-    "name" => $name,
-    "brandName" => $product['brands'] ?? '',
-    "foodType" => "Open Food Facts",
-    "portion" => $portion,
-    "calories" => nutriment_value($nutriments, "energy-kcal_serving", "energy-kcal_100g"),
-    "protein" => nutriment_value($nutriments, "proteins_serving", "proteins_100g"),
-    "carbs" => nutriment_value($nutriments, "carbohydrates_serving", "carbohydrates_100g"),
-    "fat" => nutriment_value($nutriments, "fat_serving", "fat_100g"),
+    "foodId"        => (string) ($product['code'] ?? $barcode),
+    "barcode"       => $barcode,
+    "name"          => $name,
+    "brandName"     => $product['brands'] ?? '',
+    "foodType"      => "Open Food Facts",
+    "portion"       => $portionLabel,
+    "servingUnit"   => $servingUnit,
+    "servingAmount" => $servingAmount,
+    "calories"      => $caloriesServing,
+    "protein"       => $proteinServing,
+    "carbs"         => $carbsServing,
+    "fat"           => $fatServing,
+    "calories100g"  => $calories100g,
+    "protein100g"   => $protein100g,
+    "carbs100g"     => $carbs100g,
+    "fat100g"       => $fat100g,
 ]);

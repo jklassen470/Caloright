@@ -1,28 +1,41 @@
 <?php
 
-// Saves the daily calorie goal to a CSV file.
-// This is the CSV version of an UPDATE/INSERT query. Later, this file can be
-// replaced with a MySQL update while React keeps calling the same endpoint.
+// Calorie goal save endpoint for the React frontend.
+// React sends the new goal as JSON and PHP saves it to the user_goals table.
+// Marking all previous goals as inactive before inserting the new one.
+
+require_once __DIR__ . '/db.php';
+session_start();
 
 header("Access-Control-Allow-Origin: http://localhost:5173");
 header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
+header("Access-Control-Allow-Credentials: true");
 header("Content-Type: application/json");
 
-// Handle the browser's CORS preflight before doing save work.
+// Handling the browser's CORS preflight request before doing any work.
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
 
-// Saving a goal changes data, so this endpoint only accepts POST.
+// Returning an error if anything other than a POST request is sent.
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(["error" => "Method not allowed"]);
     exit;
 }
 
-// React sends JSON like: { "dailyCalorieGoal": 2200 }.
+// Returning an error if the user is not logged in.
+if (!isset($_SESSION['user_id'])) {
+    http_response_code(401);
+    echo json_encode(["error" => "Not logged in"]);
+    exit;
+}
+
+$userId = $_SESSION['user_id'];
+
+// Reading the JSON body sent from React.
 $requestData = json_decode(file_get_contents("php://input"), true);
 
 if (!is_array($requestData)) {
@@ -39,29 +52,22 @@ if ($goal <= 0) {
     exit;
 }
 
-$dataDirectory = __DIR__ . '/data';
-$goalsPath = $dataDirectory . '/goals.csv';
+// Marking all previous goals for this user as inactive.
+// The schema keeps old goals for history but only one can be active at a time.
+$stmt = $pdo->prepare("UPDATE user_goals SET is_active = 0 WHERE user_id = ?");
+$stmt->execute([$userId]);
 
-// Make sure the CSV folder exists before writing the goal file.
-if (!is_dir($dataDirectory)) {
-    mkdir($dataDirectory, 0777, true);
-}
+// Inserting the new goal with a one week period starting today.
+$periodStart = date('Y-m-d');
+$periodEnd   = date('Y-m-d', strtotime('+7 days'));
 
-$csvFile = fopen($goalsPath, 'w');
+$stmt = $pdo->prepare("
+    INSERT INTO user_goals (user_id, daily_calorie_target, period_start, period_end, is_active)
+    VALUES (?, ?, ?, ?, 1)
+");
+$stmt->execute([$userId, $goal, $periodStart, $periodEnd]);
 
-if ($csvFile === false) {
-    http_response_code(500);
-    echo json_encode(["error" => "Unable to open goals CSV file"]);
-    exit;
-}
-
-// For now we only store the latest goal, so opening with "w" replaces
-// the previous value. A future database version could update one user row.
-fputcsv($csvFile, ['daily_calorie_goal', 'updated_at']);
-fputcsv($csvFile, [$goal, date('c')]);
-fclose($csvFile);
-
-// Return the saved value so React can update the dashboard state.
+// Returning the saved value so React can update the dashboard state.
 echo json_encode([
     "dailyCalorieGoal" => $goal,
 ]);

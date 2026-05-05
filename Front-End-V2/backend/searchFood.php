@@ -207,20 +207,17 @@ if (isset($searchData['foods'])) {
 
         // Start as null so we can tell the difference between "missing"
         // and an actual zero value from USDA.
-        $calories = null;
+                $calories = null;
         $protein = null;
         $carbs = null;
         $fat = null;
+        $caloriesEstimated = false;
 
         foreach ($nutrients as $nutrient) {
             $name = strtolower($nutrient['nutrientName'] ?? '');
             $unit = strtolower($nutrient['unitName'] ?? '');
             $value = $nutrient['value'] ?? null;
 
-            // USDA can name energy a few different ways, especially in
-            // Foundation foods, such as "Energy (Atwater General Factors)".
-            // React expects calories, so prefer kcal. If only kJ exists, convert
-            // kJ to kcal as a fallback.
             if (strpos($name, 'energy') !== false && $unit === 'kcal') {
                 $calories = $value;
             }
@@ -242,17 +239,55 @@ if (isset($searchData['foods'])) {
             }
         }
 
+        // If USDA didn't include kcal data, estimating from macros using the Atwater formula (protein*4 + carbs*4 + fat*9).
+        if ($calories === null || $calories <= 0) {
+            $estimatedCalories = (clean_number($protein) * 4) + (clean_number($carbs) * 4) + (clean_number($fat) * 9);
+
+            if ($estimatedCalories > 0) {
+                $calories = $estimatedCalories;
+                $caloriesEstimated = true;
+            } else {
+                $calories = null;
+            }
+        }
+
+        // Skipping foods where calories are still unknown after estimation since they aren't useful for calorie tracking.
+        if ($calories === null || $calories <= 0) {
+            continue;
+        }
+
+        // Extracting the serving size and unit from USDA when available.
+        // Only accepting grams and mL since other units would need density to convert.
+        $rawServingAmount = $food["servingSize"] ?? null;
+        $rawServingUnit   = strtolower(trim($food["servingSizeUnit"] ?? ''));
+
+        $servingAmount = null;
+        $servingUnit   = 'g';
+
+        if ($rawServingAmount !== null && (float) $rawServingAmount > 0) {
+            if ($rawServingUnit === 'g') {
+                $servingAmount = clean_number($rawServingAmount);
+                $servingUnit   = 'g';
+            } elseif ($rawServingUnit === 'ml') {
+                $servingAmount = clean_number($rawServingAmount);
+                $servingUnit   = 'mL';
+            }
+        }
+
         $foods[] = [
-            "food_id" => $food["fdcId"] ?? null,
-            "name" => display_food_name($food),
-            "brand" => $food["brandOwner"] ?? $food["brandName"] ?? null,
-            "calories" => clean_number($calories),
-            "protein" => clean_number($protein),
-            "carbs" => clean_number($carbs),
-            "fat" => clean_number($fat),
-            // FoodData Central search nutrients are usually reported per 100g.
-            "portion" => "100g",
-            "description" => $food["dataType"] ?? "USDA FoodData Central"
+            "food_id"       => $food["fdcId"] ?? null,
+            "name"          => display_food_name($food),
+            "brand"         => $food["brandOwner"] ?? $food["brandName"] ?? null,
+            "calories"      => clean_number($calories),
+            "protein"       => clean_number($protein),
+            "carbs"         => clean_number($carbs),
+            "fat"           => clean_number($fat),
+            "portion"       => "100g",
+            "servingAmount" => $servingAmount,
+            "servingUnit"   => $servingUnit,
+            "description"   => $food["dataType"] ?? "USDA FoodData Central",
+            // Flagging whether calories were estimated from macros so the frontend can indicate it to the user.
+            "estimated"     => $caloriesEstimated
         ];
     }
 }

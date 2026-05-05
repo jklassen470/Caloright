@@ -1,4 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { updateProfile, changePassword, getProfile } from '../services/profileService'
 import { Lock, Save, Shield, User } from 'lucide-react'
 import Navbar from './Navbar'
 import './CSS/profile.css'
@@ -59,9 +61,29 @@ function ProfilePage({ userName = 'John Doe' }) {
     confirmPassword: '',
   })
 
+  // Error and success state variables
+  const [profileError, setProfileError] = useState('')
+  const [profileSuccess, setProfileSuccess] = useState('')
+  const [passwordError, setPasswordError] = useState('')
+  const [passwordSuccess, setPasswordSuccess] = useState('')
+
+  const navigate = useNavigate()
+
   const initials = useMemo(() => getInitials(profileData.name), [profileData.name])
 
-  // Update one profile field.
+  // Loading the user's real name and email from PHP when the profile page opens.
+  useEffect(() => {
+    getProfile()
+      .then((data) => {
+        setProfileData({
+          name: data.full_name,
+          email: data.email,
+        })
+      })
+      .catch(() => {})
+  }, [])
+
+  // Updating one field in the profile form state without overwriting the others.
   const updateProfileField = (field, value) => {
     setProfileData((current) => ({
       ...current,
@@ -69,7 +91,7 @@ function ProfilePage({ userName = 'John Doe' }) {
     }))
   }
 
-  // Update one password field.
+  // Updating one field in the password form state without overwriting the others.
   const updatePasswordField = (field, value) => {
     setPasswordData((current) => ({
       ...current,
@@ -77,47 +99,65 @@ function ProfilePage({ userName = 'John Doe' }) {
     }))
   }
 
-  // Save profile form.
-  const handleUpdateProfile = (event) => {
+  // Validating the profile form and calling PHP to save the updated name and email.
+  const handleUpdateProfile = async (event) => {
     event.preventDefault()
+    setProfileError('')
+    setProfileSuccess('')
 
     if (!profileData.name.trim() || !profileData.email.trim()) {
+      setProfileError('Name and email are required.')
       return
     }
 
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailPattern.test(profileData.email)) {
+      setProfileError('Please enter a valid email address.')
       return
+    }
+
+    try {
+      await updateProfile({ full_name: profileData.name, email: profileData.email })
+      setProfileSuccess('Profile updated successfully.')
+    } catch (error) {
+      setProfileError(error.message)
     }
   }
 
-  // Save password form.
-  const handleChangePassword = (event) => {
+  // Validating the password form and calling PHP to verify the current password and save the new one.
+  const handleChangePassword = async (event) => {
     event.preventDefault()
+    setPasswordError('')
+    setPasswordSuccess('')
 
     const { currentPassword, newPassword, confirmPassword } = passwordData
     if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordError('Please fill in all fields.')
       return
     }
 
     if (newPassword.length < 8) {
+      setPasswordError('New password must be at least 8 characters.')
       return
     }
 
     if (newPassword !== confirmPassword) {
+      setPasswordError('Passwords do not match.')
       return
     }
 
-    setPasswordData({
-      currentPassword: '',
-      newPassword: '',
-      confirmPassword: '',
-    })
+    try {
+      await changePassword({ current_password: currentPassword, new_password: newPassword })
+      setPasswordSuccess('Password updated successfully.')
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })
+    } catch (error) {
+      setPasswordError(error.message)
+    }
   }
 
   return (
     <div className="profile-page">
-      <Navbar userName={profileData.name} />
+      <Navbar variant="profile" userName={profileData.name} onBackClick={() => navigate('/dashboard')} />
 
       <main className="profile-page__content">
         {/* Page heading */}
@@ -164,6 +204,8 @@ function ProfilePage({ userName = 'John Doe' }) {
             </div>
 
             <div className="profile-card__actions">
+              {profileError ? <p className="auth-error">{profileError}</p> : null}
+              {profileSuccess ? <p className="auth-success">{profileSuccess}</p> : null}
               <button className="profile-button profile-button--primary" type="submit">
                 <Save size={16} />
                 <span>Save Changes</span>
@@ -207,6 +249,8 @@ function ProfilePage({ userName = 'John Doe' }) {
             </div>
 
             <div className="profile-card__actions">
+              {passwordError ? <p className="auth-error">{passwordError}</p> : null}
+              {passwordSuccess ? <p className="auth-success">{passwordSuccess}</p> : null}
               <button className="profile-button profile-button--primary" type="submit">
                 <Lock size={16} />
                 <span>Update Password</span>

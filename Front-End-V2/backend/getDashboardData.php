@@ -1,222 +1,160 @@
 <?php
 
-// Dashboard data endpoint.
-// This file is the temporary "backend database reader" for the React dashboard.
-// Instead of React importing mockDashboardData.js, React calls this PHP file.
-// PHP reads CSV files, converts the rows into arrays, and returns JSON.
-//
-// Later, each CSV read can be replaced with a MySQL SELECT query while keeping
-// the JSON response shape the same for the frontend.
+// Dashboard data endpoint for the React frontend.
+// React calls this when the dashboard first loads.
+// Reading today's food entries, the user's calorie goal, and weekly history from the database and returning them as JSON.
+
+require_once __DIR__ . '/db.php';
+session_start();
 
 header("Access-Control-Allow-Origin: http://localhost:5173");
 header("Access-Control-Allow-Methods: GET, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
+header("Access-Control-Allow-Credentials: true");
 header("Content-Type: application/json");
 
-// React/Vite and PHP run on different local origins:
-// React: http://localhost:5173
-// PHP:   http://localhost
-// The browser may send OPTIONS first to check CORS permissions.
+// Handling the browser's CORS preflight request before doing any work.
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
 
-// This endpoint only reads dashboard data, so it should be called with GET.
-// Save/update actions use separate POST endpoints.
+// Returning an error if anything other than a GET request is sent.
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     http_response_code(405);
     echo json_encode(["error" => "Method not allowed"]);
     exit;
 }
 
-$dataDirectory = __DIR__ . '/data';
-$foodLogPath = $dataDirectory . '/food_log.csv';
-$goalsPath = $dataDirectory . '/goals.csv';
-$historyPath = $dataDirectory . '/history.csv';
-
-// Create the data folder automatically so the app can run on a fresh computer
-// without manually creating CSV files first.
-if (!is_dir($dataDirectory)) {
-    mkdir($dataDirectory, 0777, true);
+// Returning an error if the user is not logged in.
+if (!isset($_SESSION['user_id'])) {
+    http_response_code(401);
+    echo json_encode(["error" => "Not logged in"]);
+    exit;
 }
 
-// Write rows to a CSV using a known header order.
-// This helper is used when creating starter CSV files.
-function write_csv_rows($csvPath, $headers, $rows)
-{
-    $csvFile = fopen($csvPath, 'w');
+$userId = $_SESSION['user_id'];
+$today  = date('Y-m-d');
 
-    if ($csvFile === false) {
-        return false;
-    }
+// Loading today's food entries by joining meals and m_Items.
+// Each row is one food item the user logged today.
+$stmt = $pdo->prepare("
+    SELECT
+        i.item_id,
+        i.food_id,
+        i.calories,
+        i.protein_g,
+        i.carbs_g,
+        i.fat_g,
+        i.add_method,
+        f.food_name,
+        m.logged_at
+    FROM m_Items i
+    JOIN meals m ON i.log_id = m.log_id
+    JOIN foods f ON i.food_id = f.food_id
+    WHERE m.user_id = ? AND m.log_date = ?
+    ORDER BY m.logged_at ASC
+");
+$stmt->execute([$userId, $today]);
+$foodRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    fputcsv($csvFile, $headers);
-
-    foreach ($rows as $row) {
-        $orderedRow = [];
-
-        foreach ($headers as $header) {
-            $orderedRow[] = $row[$header] ?? '';
-        }
-
-        fputcsv($csvFile, $orderedRow);
-    }
-
-    fclose($csvFile);
-    return true;
-}
-
-// If goals.csv does not exist yet, create a starter calorie goal.
-// Later this would probably come from a users table in MySQL.
-function ensure_goals_csv($goalsPath)
-{
-    if (file_exists($goalsPath)) {
-        return;
-    }
-
-    write_csv_rows(
-        $goalsPath,
-        ['daily_calorie_goal', 'updated_at'],
-        [[
-            'daily_calorie_goal' => 2000,
-            'updated_at' => date('c'),
-        ]]
-    );
-}
-
-// If history.csv does not exist yet, create sample weekly history data.
-// This keeps the dashboard chart from being empty on first run.
-function ensure_history_csv($historyPath)
-{
-    if (file_exists($historyPath)) {
-        return;
-    }
-
-    write_csv_rows(
-        $historyPath,
-        ['id', 'day', 'calories'],
-        [
-            ['id' => 'mon', 'day' => 'Mon', 'calories' => 1850],
-            ['id' => 'tue', 'day' => 'Tue', 'calories' => 2100],
-            ['id' => 'wed', 'day' => 'Wed', 'calories' => 1920],
-            ['id' => 'thu', 'day' => 'Thu', 'calories' => 1780],
-            ['id' => 'fri', 'day' => 'Fri', 'calories' => 2050],
-            ['id' => 'sat', 'day' => 'Sat', 'calories' => 1890],
-        ]
-    );
-}
-
-// Read any CSV file into an array of associative arrays.
-// Example output row: ["name" => "Rice", "calories" => "200"].
-function read_csv_assoc($csvPath)
-{
-    if (!file_exists($csvPath)) {
-        return [];
-    }
-
-    $csvFile = fopen($csvPath, 'r');
-
-    if ($csvFile === false) {
-        return [];
-    }
-
-    $headers = fgetcsv($csvFile);
-
-    if ($headers === false) {
-        fclose($csvFile);
-        return [];
-    }
-
-    $rows = [];
-
-    while (($row = fgetcsv($csvFile)) !== false) {
-        if (count(array_filter($row, fn($value) => $value !== null && $value !== '')) === 0) {
-            continue;
-        }
-
-        $rows[] = array_combine(
-            $headers,
-            array_pad($row, count($headers), '')
-        );
-    }
-
-    fclose($csvFile);
-    return $rows;
-}
-
-// CSV values are read as strings, so convert nutrition numbers before
-// sending them back to React.
-function number_value($value)
-{
-    if ($value === null || $value === '') {
-        return 0;
-    }
-
-    return (float) $value;
-}
-
-// Convert one food_log.csv row into the frontend dashboard food shape.
-// Recipe ingredients are stored as JSON in the CSV, so we decode them here.
-function map_food_row($row)
-{
-    $ingredientsJson = $row['ingredients_json'] ?? '[]';
-    $ingredients = json_decode($ingredientsJson, true);
-
-    if (!is_array($ingredients)) {
-        $ingredients = [];
-    }
-
-    $ingredientFoodIds = trim($row['ingredient_food_ids'] ?? '') === ''
-        ? []
-        : explode('|', $row['ingredient_food_ids']);
-
+$foods = array_map(function($row) {
     return [
-        'id' => $row['id'] ?? '',
-        'foodId' => $row['food_id'] ?? '',
-        'source' => $row['source'] ?? '',
-        'name' => $row['name'] ?? '',
-        'calories' => number_value($row['calories'] ?? 0),
-        'protein' => number_value($row['protein'] ?? 0),
-        'carbs' => number_value($row['carbs'] ?? 0),
-        'fat' => number_value($row['fat'] ?? 0),
-        'ingredientFoodIds' => $ingredientFoodIds,
-        'ingredients' => $ingredients,
-        'time' => $row['time'] ?? '',
-        'createdAt' => $row['created_at'] ?? '',
+        'id'       => (string) $row['item_id'],
+        'foodId'   => (string) $row['food_id'],
+        'source'   => $row['add_method'],
+        'name'     => $row['food_name'],
+        'calories' => (float) $row['calories'],
+        'protein'  => (float) $row['protein_g'],
+        'carbs'    => (float) $row['carbs_g'],
+        'fat'      => (float) $row['fat_g'],
+        'time'     => date('g:i A', strtotime($row['logged_at'])),
+        'createdAt' => $row['logged_at'],
+        'ingredientFoodIds' => [],
+        'ingredients'       => [],
     ];
-}
+}, $foodRows);
 
-// The current CSV stores the latest goal as the last row.
-// Since saveDailyGoal.php rewrites the file, there is usually only one row.
-function load_daily_calorie_goal($goalsPath)
-{
-    $goalRows = read_csv_assoc($goalsPath);
-    $latestGoal = $goalRows[count($goalRows) - 1]['daily_calorie_goal'] ?? 2000;
+// Loading the user's active calorie goal.
+// Defaulting to 2000 if no goal has been set yet.
+$stmt = $pdo->prepare("
+    SELECT daily_calorie_target, period_start, period_end
+    FROM user_goals
+    WHERE user_id = ? AND is_active = 1
+    ORDER BY created_at DESC
+    LIMIT 1
+");
+$stmt->execute([$userId]);
+$goal = $stmt->fetch(PDO::FETCH_ASSOC);
+$dailyCalorieGoal = $goal ? (int) $goal['daily_calorie_target'] : 2000;
 
-    return (int) $latestGoal;
-}
+// Loading the last 6 days of calorie history for the weekly chart.
+// Excluding today because the frontend adds today's total separately.
+$stmt = $pdo->prepare("
+    SELECT summary_date, total_calories
+    FROM daily
+    WHERE user_id = ? AND summary_date < ?
+    ORDER BY summary_date DESC
+    LIMIT 6
+");
+$stmt->execute([$userId, $today]);
+$historyRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Convert one history.csv row into the chart format used by React.
-function map_history_row($row)
-{
+// Reversing the rows so the chart shows oldest to newest left to right.
+$historyRows = array_reverse($historyRows);
+
+$weeklyHistory = array_map(function($row) {
     return [
-        'id' => $row['id'] ?? strtolower($row['day'] ?? ''),
-        'day' => $row['day'] ?? '',
-        'calories' => number_value($row['calories'] ?? 0),
+        'id'       => $row['summary_date'],
+        'day'      => date('D', strtotime($row['summary_date'])),
+        'calories' => (float) $row['total_calories'],
     ];
+}, $historyRows);
+
+// Loading the user's current logging streak.
+$stmt = $pdo->prepare("SELECT current_streak FROM streaks WHERE user_id = ?");
+$stmt->execute([$userId]);
+$streakRow = $stmt->fetch(PDO::FETCH_ASSOC);
+$currentStreak = $streakRow ? (int) $streakRow['current_streak'] : 0;
+
+// Loading the total number of foods the user has ever logged.
+$stmt = $pdo->prepare("SELECT SUM(foods_logged) as total FROM daily WHERE user_id = ?");
+$stmt->execute([$userId]);
+$totalRow = $stmt->fetch(PDO::FETCH_ASSOC);
+$totalFoodsLogged = $totalRow ? (int) $totalRow['total'] : 0;
+
+// Calculating goal achievement for the current goal period.
+// Comparing the average daily calories to the target and returning a percentage.
+// Within 5% of the target counts as 100%.
+$goalAchievement = 0;
+
+if ($goal) {
+    $stmt = $pdo->prepare("
+        SELECT AVG(total_calories) as avg_calories
+        FROM daily
+        WHERE user_id = ? AND summary_date BETWEEN ? AND ?
+    ");
+    $stmt->execute([$userId, $goal['period_start'], $goal['period_end']]);
+    $avgRow = $stmt->fetch(PDO::FETCH_ASSOC);
+    $avgCalories = (float) ($avgRow['avg_calories'] ?? 0);
+
+    if ($avgCalories > 0) {
+        $target = (float) $goal['daily_calorie_target'];
+        $diff = abs($avgCalories - $target) / $target;
+
+        if ($diff <= 0.05) {
+            $goalAchievement = 100;
+        } else {
+            $goalAchievement = max(0, (int) round((1 - $diff) * 100));
+        }
+    }
 }
 
-ensure_goals_csv($goalsPath);
-ensure_history_csv($historyPath);
-
-$foods = array_map('map_food_row', read_csv_assoc($foodLogPath));
-$weeklyHistory = array_map('map_history_row', read_csv_assoc($historyPath));
-$dailyCalorieGoal = load_daily_calorie_goal($goalsPath);
-
-// Final response shape must match what useDashboardData expects.
 echo json_encode([
-    'foods' => $foods,
+    'foods'            => $foods,
     'dailyCalorieGoal' => $dailyCalorieGoal,
-    'weeklyHistory' => $weeklyHistory,
+    'weeklyHistory'    => $weeklyHistory,
+    'currentStreak'    => $currentStreak,
+    'totalFoodsLogged' => $totalFoodsLogged,
+    'goalAchievement'  => $goalAchievement,
 ]);
