@@ -26,3 +26,21 @@ Installation:
    - Windows (in command prompt, keep the quotation marks): setx USDA_API_KEY "your_key_here" (then restart XAMPP)
    - Mac/Linux: Add [export USDA_API_KEY="your_key_here"] to your shell profile (remove the brackets).
 ---------------------------------------------------------------------------------------------------------------------------------
+[Running React]:
+Copy the path to the "Front-End-V2" folder, and type the following into a terminal and run it one line at a time:
+      cd 'path_to_Front-End-V2'
+      npm install
+      npm run dev
+- The app will be available at http://localhost:5173
+
+---------------------------------------------------------------------------------------------------------------------------------
+[Additional Notes]:
+- The backend runs on http://localhost/CaloServer/
+- Frontend and backend must both be running at the same time
+- The data/folder inside CaloServer/ is created automatically, do not delete it
+---------------------------------------------------------------------------------------------------------------------------------
+
+[Contributors]:
+- Frontend: Van Lawn
+- Main Backend: Jacob Klassen
+- SQL/Minor Backend: Joshua Heath
