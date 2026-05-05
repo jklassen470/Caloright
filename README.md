@@ -11,3 +11,18 @@ Installation:
 
 - A free USDA FoodData Central API key
 ---------------------------------------------------------------------------------------------------------------------------------
+[Database Setup]:
+- Open XAMPP and start Apache and MySQL
+- Open phpMyAdmin (http://localhost/phpmyadmin)
+- Import CaloSQLVersion2.sql into it (CaloRight->CaloRight2->CaloSQLVersion2.sql)
+---------------------------------------------------------------------------------------------------------------------------------
+[Backend]:
+1. Open XAMPP Control Panel and click "Explorer" on the right-hand side.
+2. Copy the Front-End-V2/backend/ folder into your XAMPP htdocts directory and rename it to "CaloServer", then copy the file path of "CaloServer" by right-clicking and selecting "Copy as path"
+3. (Don't do this step unless you get an error where the website can't connect to the database) Open up a file called "db.php" and type in your MySQL password in the apostrophe's where it says "$pass = '';"
+4. Open up command prompt and type "cd 'path-to-CaloServer'" (replace 'path-to-CaloServer' with the path you copied before, and remove the apostrophes). Run that command
+5. Type "composer install" into command prompt and run it. If you get an error, that probably means you haven't installed composer beforehand.
+6. Set your USDA API key as an environment variable:
+     -Windows (in command prompt, keep the quotation marks): setx USDA_API_KEY "your_key_here" (then restart XAMPP)
+     -Mac/Linux: Add export USDA_API_KEY="your_key_here" to your shell profile
+---------------------------------------------------------------------------------------------------------------------------------
