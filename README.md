@@ -21,9 +21,23 @@ CaloRight is a calorie tracking web application ran using XAMPP and React. It su
 1. Open XAMPP Control Panel and click "Explorer" on the right-hand side.
 2. Copy the Front-End-V2/backend/ folder into your XAMPP htdocts directory and rename it to "CaloServer", then copy the file path of "CaloServer" by right-clicking and selecting "Copy as path"
 3. (Don't do this step unless you get an error where the website can't connect to the database) Open up a file called "db.php" and type in your MySQL password in the apostrophe's where it says "$pass = '';"
-4. Open up command prompt and type "cd 'path-to-CaloServer'" (replace 'path-to-CaloServer' with the path you copied before, and remove the apostrophes). Run that command
-5. Type "composer install" into command prompt and run it. If you get an error, that probably means you haven't installed composer beforehand, or you need to restart command prompt.
-6. Set your USDA API key as an environment variable:
+4. Create a file in the CaloServer folder called "db.php" and paste the following into it:
+
+         <?php
+         // Shared database connection for all PHP endpoints.
+         // Including this file gives access to the $pdo object used to run queries.
+         $host = 'localhost';
+         $db = 'caloDB';
+         $user = 'root';
+         $pass = '';
+         
+         $pdo = new PDO("mysql:host=$host;dbname=$db;charset=utf8mb4", $user, $pass);
+         // Setting error mode to exceptions so any failed query throws an error instead of failing silently.
+         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+   (If you get a "Failed to Fetch" error when trying to use the web application, try typing in your MySQL password into the corresponding apostrophe's in db.php, but you likely won't need to)
+6. Open up command prompt and type "cd 'path-to-CaloServer'" (replace 'path-to-CaloServer' with the path you copied before, and remove the apostrophes). Run that command
+7. Type "composer install" into command prompt and run it. If you get an error, that probably means you haven't installed composer beforehand, or you need to restart command prompt.
+8. Set your USDA API key as an environment variable:
    - Windows (in command prompt, keep the quotation marks): setx USDA_API_KEY "your_key_here" (then restart XAMPP)
    - Mac/Linux: Add [export USDA_API_KEY="your_key_here"] to your shell profile (remove the brackets).
 ---------------------------------------------------------------------------------------------------------------------------------
