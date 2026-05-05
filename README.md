@@ -3,11 +3,11 @@ CaloRight is a calorie tracking web application ran using XAMPP and React. It su
 Installation:
 ===============================================================================================================================
 [Prerequisites]:
--Node.js (version 18+)
+- Node.js (version 18+)
 
--XAMPP (Apache + MySQL)
+- XAMPP (Apache + MySQL)
 
--Composer
+- Composer
 
--A free USDA FoodData Central API key
+- A free USDA FoodData Central API key
 ---------------------------------------------------------------------------------------------------------------------------------
