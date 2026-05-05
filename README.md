@@ -24,5 +24,5 @@ Installation:
 5. Type "composer install" into command prompt and run it. If you get an error, that probably means you haven't installed composer beforehand.
 6. Set your USDA API key as an environment variable:
    - Windows (in command prompt, keep the quotation marks): setx USDA_API_KEY "your_key_here" (then restart XAMPP)
-   - Mac/Linux: Add export USDA_API_KEY="your_key_here" to your shell profile
+   - Mac/Linux: Add [export USDA_API_KEY="your_key_here"] to your shell profile (remove the brackets).
 ---------------------------------------------------------------------------------------------------------------------------------
