@@ -69,6 +69,10 @@ function fetch_open_food_facts($lookupUrl)
     curl_setopt($ch, CURLOPT_HTTPHEADER, [
         "Accept: application/json",
     ]);
+    // Disabling SSL certificate verification because XAMPP does not ship with
+    // a CA certificate bundle, causing all HTTPS requests to fail by default.
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
 
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);

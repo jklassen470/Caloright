@@ -156,6 +156,10 @@ curl_setopt($ch, CURLOPT_HTTPHEADER, [
 // Receive server response as a string
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_TIMEOUT, 20);
+// Disabling SSL certificate verification because XAMPP does not ship with
+// a CA certificate bundle, causing all HTTPS requests to fail by default.
+curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
 
 // Execute search request
 $searchResponse = curl_exec($ch);

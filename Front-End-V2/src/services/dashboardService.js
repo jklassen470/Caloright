@@ -50,6 +50,9 @@ function normalizeDashboardData(data) {
           calories: Number(entry.calories) || 0,
         }))
       : [],
+    // Passing streak and foods logged through so the quick stats card shows real values.
+    currentStreak: Number(data.currentStreak) || 0,
+    totalFoodsLogged: Number(data.totalFoodsLogged) || 0,
   }
 }
 
