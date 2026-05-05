@@ -28,6 +28,7 @@ Installation:
 ---------------------------------------------------------------------------------------------------------------------------------
 [Running React]:
 Copy the path to the "Front-End-V2" folder, and type the following into a terminal and run it one line at a time:
+
       cd 'path_to_Front-End-V2'
       npm install
       npm run dev
